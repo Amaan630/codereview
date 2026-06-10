@@ -1,0 +1,65 @@
+{
+  "name": "codereview",
+  "version": "0.1.0",
+  "description": "Local ordered GitHub PR review sessions for coding agents",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "homepage": "https://github.com/Amaan630/codereview",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Amaan630/codereview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Amaan630/codereview/issues"
+  },
+  "keywords": [
+    "git",
+    "diff",
+    "github",
+    "pull-request",
+    "code-review",
+    "review-pr",
+    "cli"
+  ],
+  "bin": {
+    "codereview": "./dist/cli.mjs",
+    "review-pr-diffx": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build && tsdown",
+    "dev:client": "vite",
+    "dev:server": "tsx src/cli.ts --no-open -p 3433",
+    "test": "tsx --test src/**/*.test.ts",
+    "prepublishOnly": "pnpm run build",
+    "start": "node dist/cli.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "@tanstack/react-query": "^5.96.2",
+    "editorconfig": "^3.0.2",
+    "get-port": "^7.2.0",
+    "hono": "^4.7.6",
+    "open": "^11.0.0"
+  },
+  "devDependencies": {
+    "@pierre/diffs": "^1.1.11",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "lucide-react": "^1.7.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsdown": "^0.21.7",
+    "tsx": "^4.19.4",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  }
+}
