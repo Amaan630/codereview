@@ -85,18 +85,19 @@ export function createApp(
   clientDir: string,
   customDiffArgs?: string[],
   commentStore?: CommentStore,
-  reviewManifest?: ReviewManifest | null
+  reviewManifest?: ReviewManifest | null,
+  allChanges = false,
 ) {
   const app = new Hono()
-  const isCustomMode = !!customDiffArgs
+  const isCustomMode = !!customDiffArgs || allChanges
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedFiles = new Map<string, string>()
 
   app.get('/api/diff', (c) => {
     let patch: string
-    const staged = c.req.query('staged') === 'true'
-    const untracked = c.req.query('untracked') === 'true'
-    if (isCustomMode) {
+    const staged = allChanges || c.req.query('staged') === 'true'
+    const untracked = allChanges || c.req.query('untracked') === 'true'
+    if (customDiffArgs) {
       patch = getCustomGitDiff(customDiffArgs)
     } else {
       patch = getGitDiff({ staged, untracked })
@@ -246,12 +247,19 @@ export function startServer(options: {
   host: string
   clientDir: string
   customDiffArgs?: string[]
+  allChanges?: boolean
   reviewManifestPath?: string
 }): Promise<{ port: number }> {
   const reviewManifest = options.reviewManifestPath
     ? normalizeReviewManifest(JSON.parse(readFileSync(options.reviewManifestPath, 'utf-8')))
     : null
-  const app = createApp(options.clientDir, options.customDiffArgs, undefined, reviewManifest)
+  const app = createApp(
+    options.clientDir,
+    options.customDiffArgs,
+    undefined,
+    reviewManifest,
+    options.allChanges,
+  )
 
   return new Promise((resolve) => {
     const server = serve({

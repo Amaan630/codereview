@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import type { FileDiffMetadata, DiffLineAnnotation, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
-import type { ReviewFileMetadata, ReviewManifestDiagnostics } from '../../review-manifest'
+import type { ReviewFileMetadata, ReviewManifest, ReviewManifestDiagnostics } from '../../review-manifest'
 import type { BinaryFileInfo } from '../hooks/useDiff'
 import { FileDiffCard } from './FileDiffCard'
 import { BinaryFileDiff } from './BinaryFileDiff'
@@ -13,6 +13,7 @@ interface DiffViewerProps {
   defaultTabSize: number
   viewedFiles: Set<string>
   binaryFiles: Map<string, BinaryFileInfo>
+  reviewManifest: ReviewManifest | null
   reviewMetadataByPath: Record<string, ReviewFileMetadata>
   reviewManifestDiagnostics: ReviewManifestDiagnostics
   onViewedChange: (filePath: string, viewed: boolean) => void
@@ -30,6 +31,7 @@ export const DiffViewer = memo(function DiffViewer({
   defaultTabSize,
   viewedFiles,
   binaryFiles,
+  reviewManifest,
   reviewMetadataByPath,
   reviewManifestDiagnostics,
   onViewedChange,
@@ -47,6 +49,10 @@ export const DiffViewer = memo(function DiffViewer({
 
   return (
     <div className="diff-viewer">
+      <p className="review-introduction">
+        {[reviewManifest?.summary, reviewManifest?.implementation].filter(Boolean).join(' ') ||
+          `This review covers ${files.length} changed file${files.length === 1 ? '' : 's'} in implementation order.`}
+      </p>
       {(reviewManifestDiagnostics.filesMissingFromManifest.length > 0 ||
         reviewManifestDiagnostics.manifestPathsMissingFromDiff.length > 0) && (
         <div className="review-manifest-warning">
@@ -73,6 +79,7 @@ export const DiffViewer = memo(function DiffViewer({
               filePath={filePath}
               info={binaryInfo}
               viewed={viewedFiles.has(filePath)}
+              order={reviewMetadata?.order ?? index + 1}
               reviewMetadata={reviewMetadata}
               onViewedChange={onViewedChange}
             />
@@ -88,6 +95,7 @@ export const DiffViewer = memo(function DiffViewer({
             diffStyle={diffStyle}
             tabSize={tabSizeMap[filePath] ?? defaultTabSize}
             viewed={viewedFiles.has(filePath)}
+            order={reviewMetadata?.order ?? index + 1}
             reviewMetadata={reviewMetadata}
             onViewedChange={onViewedChange}
             onAddComment={onAddComment}

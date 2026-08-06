@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useMemo, useCallback, useRef } from 'react'
 import { parsePatchFiles } from '@pierre/diffs'
 import type { FileDiffMetadata } from '@pierre/diffs'
 import type { ReviewComment } from '../types'
@@ -8,8 +8,6 @@ import { useSettings } from './hooks/useSettings'
 import { useViewed } from './hooks/useViewed'
 import { Toolbar } from './components/Toolbar'
 import { DiffViewer } from './components/DiffViewer'
-import { FileTree } from './components/FileTree'
-import { CommentTracker } from './components/CommentTracker'
 import {
   getReviewManifestDiagnostics,
   orderFilesForReview,
@@ -17,29 +15,13 @@ import {
 
 export function App() {
   const { settings, loaded, updateSettings } = useSettings()
-  const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, untrackedFiles, reviewManifest, loading, error } = useDiff({
+  const { patch, repoName, branch, customMode, binaryFiles, tabSizeMap, reviewManifest, loading, error } = useDiff({
     staged: settings.staged,
     untracked: settings.untracked,
   })
   const { comments, addComment, removeComment, copyAllComments } =
     useComments()
-  const [activeFile, setActiveFile] = useState<string | null>(null)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem('diffx-sidebar-collapsed') === 'true'
-    } catch {
-      return false
-    }
-  })
   const diffViewerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('diffx-sidebar-collapsed', String(sidebarCollapsed))
-    } catch {}
-  }, [sidebarCollapsed])
-
-  const untrackedSet = useMemo(() => new Set(untrackedFiles), [untrackedFiles])
 
   const files = useMemo(() => {
     if (!patch) return []
@@ -100,14 +82,6 @@ export function App() {
     return map
   }, [binaryFiles])
 
-  const commentCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const c of comments) {
-      counts[c.filePath] = (counts[c.filePath] ?? 0) + 1
-    }
-    return counts
-  }, [comments])
-
   const fileAnnotationsMap = useMemo(() => {
     const map = new Map<string, { side: ReviewComment['side']; lineNumber: number; metadata: ReviewComment }[]>()
     for (const c of comments) {
@@ -125,8 +99,7 @@ export function App() {
     return map
   }, [comments])
 
-  const handleFileClick = useCallback((filePath: string) => {
-    setActiveFile(filePath)
+  const scrollToFile = useCallback((filePath: string) => {
     const el = document.getElementById(`file-${filePath}`)
     if (el) {
       el.scrollIntoView({ block: 'start' })
@@ -135,7 +108,16 @@ export function App() {
 
   const handleViewedChange = useCallback((filePath: string, viewed: boolean) => {
     setViewed(filePath, viewed)
-  }, [setViewed])
+    if (!viewed) return
+
+    const currentFileIndex = files.findIndex((file) => file.name === filePath)
+    const nextUnviewedFile = files
+      .slice(currentFileIndex + 1)
+      .find((file) => !viewedFiles.has(file.name))
+    if (nextUnviewedFile) {
+      requestAnimationFrame(() => scrollToFile(nextUnviewedFile.name))
+    }
+  }, [files, scrollToFile, setViewed, viewedFiles])
 
   if (!loaded || loading) {
     return (
@@ -173,38 +155,23 @@ export function App() {
         onBrowserChange={(browser) => updateSettings({ browser })}
         onCopyComments={copyAllComments}
       />
-      <div className="app-body">
-        <aside className={`sidebar ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-          <FileTree
-            files={files}
-            activeFile={activeFile}
-            commentCounts={commentCounts}
-            viewedFiles={viewedFiles}
-            untrackedFiles={untrackedSet}
-            reviewMetadataByPath={reviewMetadataByPath}
-            onFileClick={handleFileClick}
-            collapsed={sidebarCollapsed}
-            onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-          />
-          {!sidebarCollapsed && <CommentTracker comments={comments} />}
-        </aside>
-        <main className="main" ref={diffViewerRef}>
-          <DiffViewer
-            files={files}
-            diffStyle={settings.diffStyle}
-            tabSizeMap={tabSizeMap}
-            defaultTabSize={settings.defaultTabSize}
-            viewedFiles={viewedFiles}
-            binaryFiles={binaryFileMap}
-            reviewMetadataByPath={reviewMetadataByPath}
-            reviewManifestDiagnostics={reviewManifestDiagnostics}
-            onViewedChange={handleViewedChange}
-            fileAnnotationsMap={fileAnnotationsMap}
-            onAddComment={addComment}
-            onDeleteComment={removeComment}
-          />
-        </main>
-      </div>
+      <main className="main" ref={diffViewerRef}>
+        <DiffViewer
+          files={files}
+          diffStyle={settings.diffStyle}
+          tabSizeMap={tabSizeMap}
+          defaultTabSize={settings.defaultTabSize}
+          viewedFiles={viewedFiles}
+          binaryFiles={binaryFileMap}
+          reviewManifest={reviewManifest}
+          reviewMetadataByPath={reviewMetadataByPath}
+          reviewManifestDiagnostics={reviewManifestDiagnostics}
+          onViewedChange={handleViewedChange}
+          fileAnnotationsMap={fileAnnotationsMap}
+          onAddComment={addComment}
+          onDeleteComment={removeComment}
+        />
+      </main>
     </div>
   )
 }

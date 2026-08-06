@@ -1,12 +1,25 @@
 import type { FileDiffMetadata } from '@pierre/diffs'
 
+export interface ReviewFileSection {
+  side: 'additions' | 'deletions'
+  startLine: number
+  endLine: number
+  label: string
+}
+
 export interface ReviewFileMetadata {
   path: string
+  summary: string
+  /** @deprecated Read legacy manifests through `summary` instead. */
   justification: string
   order: number
+  /** Optional bordered, click-to-reveal overlays drawn around a line range. */
+  sections: ReviewFileSection[]
 }
 
 export interface ReviewManifest {
+  summary: string | null
+  implementation: string | null
   files: ReviewFileMetadata[]
   byPath: Record<string, ReviewFileMetadata>
 }
@@ -18,11 +31,15 @@ export interface ReviewManifestDiagnostics {
 
 interface RawReviewFileMetadata {
   path?: unknown
+  summary?: unknown
   justification?: unknown
   order?: unknown
+  sections?: unknown
 }
 
 interface RawReviewManifest {
+  summary?: unknown
+  implementation?: unknown
   files?: unknown
 }
 
@@ -35,6 +52,22 @@ function assertRawReviewFile(value: unknown, index: number): RawReviewFileMetada
 
 function normalizePath(path: string): string {
   return path.trim().replace(/^\.?\//, '')
+}
+
+function normalizeSections(raw: unknown): ReviewFileSection[] {
+  if (!Array.isArray(raw)) return []
+  const sections: ReviewFileSection[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const { side, startLine, endLine, label } = entry as Record<string, unknown>
+    if (side !== 'additions' && side !== 'deletions') continue
+    if (typeof startLine !== 'number' || !Number.isFinite(startLine)) continue
+    if (typeof endLine !== 'number' || !Number.isFinite(endLine)) continue
+    if (endLine < startLine) continue
+    if (typeof label !== 'string' || !label.trim()) continue
+    sections.push({ side, startLine, endLine, label: label.trim() })
+  }
+  return sections
 }
 
 export function normalizeReviewManifest(raw: unknown): ReviewManifest {
@@ -55,8 +88,9 @@ export function normalizeReviewManifest(raw: unknown): ReviewManifest {
     if (typeof entry.path !== 'string' || !entry.path.trim()) {
       throw new Error(`review manifest entry ${index} must include a non-empty path`)
     }
-    if (typeof entry.justification !== 'string' || !entry.justification.trim()) {
-      throw new Error(`review manifest entry ${index} must include a non-empty justification`)
+    const summary = entry.summary ?? entry.justification
+    if (typeof summary !== 'string' || !summary.trim()) {
+      throw new Error(`review manifest entry ${index} must include a non-empty summary`)
     }
     const path = normalizePath(entry.path)
     if (byPath[path]) {
@@ -67,15 +101,26 @@ export function normalizeReviewManifest(raw: unknown): ReviewManifest {
       : index + 1
     const normalized = {
       path,
-      justification: entry.justification.trim(),
+      summary: summary.trim(),
+      justification: summary.trim(),
       order,
+      sections: normalizeSections(entry.sections),
     }
     byPath[path] = normalized
     return normalized
   })
 
   files.sort((a, b) => a.order - b.order || a.path.localeCompare(b.path))
-  return { files, byPath }
+  return {
+    summary: typeof maybeManifest?.summary === 'string' && maybeManifest.summary.trim()
+      ? maybeManifest.summary.trim()
+      : null,
+    implementation: typeof maybeManifest?.implementation === 'string' && maybeManifest.implementation.trim()
+      ? maybeManifest.implementation.trim()
+      : null,
+    files,
+    byPath,
+  }
 }
 
 export function orderFilesForReview<T extends { name: string }>(

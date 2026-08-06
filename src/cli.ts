@@ -13,6 +13,7 @@ const { values, positionals } = parseArgs({
     port: { type: 'string', short: 'p' },
     host: { type: 'string' },
     'review-manifest': { type: 'string' },
+    all: { type: 'boolean', default: false },
     'no-open': { type: 'boolean', default: false },
     help: { type: 'boolean' },
     version: { type: 'boolean', short: 'v' },
@@ -31,6 +32,7 @@ Options:
                      0.0.0.0 to expose the server to the local network.
   --review-manifest <path>
                      JSON file with review-order metadata for changed files
+  --all               Include staged, unstaged, and untracked working-tree changes
   --no-open          Don't open the browser automatically
   -v, --version      Show version number
   -h, --help         Show this help message
@@ -40,7 +42,8 @@ Examples:
   codereview -- --staged            Review staged changes
   codereview -- HEAD~3              Review last 3 commits
   codereview -- main..feature       Compare branches
-  codereview --review-manifest .codereview/pr-123-review-manifest.json -- origin/main...refs/review-pr/123/head
+  codereview --all --review-manifest .codereview/review.json
+  codereview --review-manifest .codereview/review.json -- origin/main...refs/review-pr/123/head
   codereview --host 0.0.0.0         Allow other machines on the LAN to review`)
   process.exit(0)
 }
@@ -75,6 +78,7 @@ const { port: actualPort } = await startServer({
   host,
   clientDir: resolvedClientDir,
   customDiffArgs,
+  allChanges: values.all,
   reviewManifestPath: values['review-manifest'],
 })
 

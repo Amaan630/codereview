@@ -59,18 +59,19 @@ Examples:
 codereview -- HEAD~3
 codereview -- main..feature
 codereview -- --staged
-codereview --review-manifest .codereview/pr-123-review-manifest.json -- origin/main...refs/review-pr/123/head
+codereview --all --review-manifest .codereview/review.json
+codereview --review-manifest .codereview/review.json -- origin/main...refs/review-pr/123/head
 ```
 
 If you do not install the package globally, use:
 
 ```bash
-node /path/to/codereview/dist/cli.mjs --review-manifest .codereview/pr-123-review-manifest.json -- origin/main...refs/review-pr/123/head
+node /path/to/codereview/dist/cli.mjs --review-manifest .codereview/review.json -- origin/main...refs/review-pr/123/head
 ```
 
 ## Review Manifest
 
-The manifest controls review order and per-file justification.
+The manifest controls review order, the single-paragraph introduction, and concise per-file summaries.
 
 ```json
 {
@@ -80,17 +81,20 @@ The manifest controls review order and per-file justification.
     "base_ref": "origin/main",
     "head_ref": "refs/review-pr/123/head"
   },
+  "summary": "Lets users review an assembled drawing packet as one saved document. It does this with packet persistence, API wiring, output generation, and coverage.",
   "files": [
     {
       "path": "src/api.ts",
       "order": 1,
-      "justification": "this is the API entry point, so it shows what callers can do."
+      "summary": "Exposes the packet through the public API."
     }
   ]
 }
 ```
 
 The UI warns when diff files are missing from the manifest or manifest paths are not present in the diff.
+
+New reviews use `.codereview/review.json`. Older `pr-<number>-review-manifest.json` files remain valid when passed to `--review-manifest`; separate top-level `implementation` fields and per-file `justification` fields remain supported.
 
 ## Skill
 
