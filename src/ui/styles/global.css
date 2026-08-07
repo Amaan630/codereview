@@ -261,13 +261,13 @@ button {
 .section-overlay {
   position: absolute;
   z-index: 5;
-  border: 1px solid transparent;
+  border: 1px solid rgba(86, 182, 232, 0.22);
   border-radius: 6px;
-  background: transparent;
+  background: rgba(86, 182, 232, 0.035);
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.section-overlay:hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.55); background: rgba(86, 182, 232, 0.08); }
+.section-overlay:hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
 .section-overlay:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .section-overlay-popover {
   position: absolute;

@@ -76,9 +76,20 @@ Use this shape:
 - `summary`: one paragraph, told bottom-up. Start at the lowest foundational piece that was added (a model, a type, a migration), then narrate each layer that gets built on top of it, and land on the user-facing capability last. Never open with the end result and backfill the mechanism.
 - `files`: every changed file exactly once, in the same bottom-up order — models, types, and migrations first; the internal services and business logic built on them next; then the routers/API surface; then workers and integration glue; tests last. Only break this order when the change is trivial enough that a different order is clearly easier to follow.
 - File `summary`: a direct sentence about the file's change, such as "Adds the saved packet page model." Do not write reasons such as "this proves..." or "read this before...".
-- File `sections` (optional): the viewer draws a bordered, click-to-reveal box around each one directly on the diff, over its `startLine`..`endLine` range on the given `side` — read the exact new/old line numbers off the real diff hunks (`git diff -U0`), don't estimate them. Cover the handful of chunks that need a reason beyond the file summary by default. When the user asks to see sections across a whole file, give one per real change block in that file instead of skipping any.
+- File `sections` (required, not optional): the viewer draws a bordered, click-to-reveal box around each one directly on the diff, over its `startLine`..`endLine` range on the given `side`. **Every real +/- change block in every changed file needs one** — this is not a curated highlight reel of the "interesting" parts. Read the exact new/old line numbers off the real diff hunks (`git diff -U0`), don't estimate them. Several adjacent sections may jointly cover one large block (e.g. a brand-new file) — they don't need to be one giant box.
 
 Legacy manifests that use a separate top-level `implementation` or per-file `justification` remain valid.
+
+## Verify the plan before opening the UI
+
+Run the deterministic check and do not consider the plan done until it exits 0:
+
+```bash
+CODEREVIEW_CLI="$(resolve_codereview)"
+$CODEREVIEW_CLI check --review-manifest .codereview/review.json -- <same diff args as below>
+```
+
+It fails loudly with the exact list of what's missing — `<file>: no section covers <side> lines <A>-<B>` for every uncovered change block, plus any file missing from the manifest or any stale manifest path no longer in the diff. Add the missing `sections` entries (or fix the file list) and re-run until it passes. Don't launch the viewer on a plan that fails this check.
 
 ## PR flow
 

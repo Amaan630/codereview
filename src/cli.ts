@@ -4,11 +4,17 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
 import getPort from 'get-port'
-import { isGitRepo } from './git.js'
+import { isGitRepo, getCustomGitDiff, getGitDiff } from './git.js'
 import { startServer } from './server.js'
 import { loadSettings } from './settings.js'
+import { normalizeReviewManifest } from './review-manifest.js'
+import { checkReviewPlan } from './check-review-plan.js'
+
+const isCheckCommand = process.argv[2] === 'check'
+const rawArgs = isCheckCommand ? process.argv.slice(3) : process.argv.slice(2)
 
 const { values, positionals } = parseArgs({
+  args: rawArgs,
   options: {
     port: { type: 'string', short: 'p' },
     host: { type: 'string' },
@@ -20,6 +26,27 @@ const { values, positionals } = parseArgs({
   },
   allowPositionals: true,
 })
+
+if (isCheckCommand) {
+  if (!isGitRepo()) {
+    console.error('Error: not inside a git repository')
+    process.exit(1)
+  }
+  const customDiffArgs = positionals.length > 0 ? positionals : undefined
+  const patch = customDiffArgs
+    ? getCustomGitDiff(customDiffArgs)
+    : getGitDiff({ staged: values.all, untracked: values.all })
+  const manifestPath = values['review-manifest'] ?? '.codereview/review.json'
+  const manifest = normalizeReviewManifest(JSON.parse(readFileSync(manifestPath, 'utf-8')))
+  const { ok, problems } = checkReviewPlan(patch, manifest)
+  if (ok) {
+    console.log('review plan check passed: every file and every change block is covered.')
+    process.exit(0)
+  }
+  console.error(`review plan check failed (${problems.length} problem${problems.length === 1 ? '' : 's'}):`)
+  for (const problem of problems) console.error(`  - ${problem}`)
+  process.exit(1)
+}
 
 if (values.help) {
   console.log(`codereview - Local ordered code review tool for git diffs
