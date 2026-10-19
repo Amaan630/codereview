@@ -29,43 +29,40 @@ function measureSection(
   section: ReviewFileSection,
   diffStyle: 'split' | 'unified',
   containerRect: DOMRect
-): OverlayRect | null {
+): OverlayRect[] {
   const shadow = host.shadowRoot
-  if (!shadow) return null
+  if (!shadow) return []
   const root = findColumnRoot(shadow, diffStyle, section.side)
-  if (!root) return null
+  if (!root) return []
 
   const lineType = section.side === 'additions' ? 'change-addition' : 'change-deletion'
   const typeSelector = diffStyle === 'unified' ? `[data-line-type="${lineType}"]` : ''
 
-  let top: number | null = null
-  let bottom: number | null = null
-  let left = Infinity
-  let right = -Infinity
-
+  const rects: OverlayRect[] = []
+  let previousBottom = -Infinity
   for (let line = section.startLine; line <= section.endLine; line++) {
     const el = root.querySelector(`${typeSelector}[data-line="${line}"]`)
     if (!el) continue
     const rect = el.getBoundingClientRect()
-    if (top === null) top = rect.top
-    bottom = rect.bottom
-    left = Math.min(left, rect.left)
-    right = Math.max(right, rect.right)
+    const previous = rects.at(-1)
+    if (previous && Math.abs(rect.top - previousBottom) < 1) {
+      previous.height = rect.bottom - containerRect.top - previous.top + OVERLAY_PADDING
+    } else {
+      rects.push({
+        top: rect.top - containerRect.top - OVERLAY_PADDING,
+        left: rect.left - containerRect.left,
+        width: rect.width,
+        height: rect.height + OVERLAY_PADDING * 2,
+      })
+    }
+    previousBottom = rect.bottom
   }
-
-  if (top === null || bottom === null || !Number.isFinite(left) || !Number.isFinite(right)) return null
-
-  return {
-    top: top - containerRect.top - OVERLAY_PADDING,
-    left: left - containerRect.left - OVERLAY_PADDING,
-    width: right - left + OVERLAY_PADDING * 2,
-    height: bottom - top + OVERLAY_PADDING * 2,
-  }
+  return rects
 }
 
 export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOverlaysProps) {
-  const [rects, setRects] = useState<(OverlayRect | null)[]>([])
-  const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const [rects, setRects] = useState<OverlayRect[][]>([])
+  const [openPart, setOpenPart] = useState<string | null>(null)
   const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -78,7 +75,7 @@ export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOv
     const measure = () => {
       const host = container.querySelector('diffs-container')
       const containerRect = container.getBoundingClientRect()
-      setRects(sections.map((section) => (host ? measureSection(host, section, diffStyle, containerRect) : null)))
+      setRects(sections.map((section) => (host ? measureSection(host, section, diffStyle, containerRect) : [])))
     }
 
     const scheduleMeasure = () => {
@@ -91,6 +88,8 @@ export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOv
 
     measure()
     window.addEventListener('resize', scheduleMeasure)
+    const resizeObserver = new ResizeObserver(scheduleMeasure)
+    resizeObserver.observe(container)
 
     // Overlay positions are computed relative to `container`, so page scroll
     // alone can't invalidate them. Rows still mount/unmount as they enter or
@@ -107,35 +106,35 @@ export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOv
     return () => {
       window.removeEventListener('resize', scheduleMeasure)
       mutationObserver?.disconnect()
+      resizeObserver.disconnect()
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current)
     }
   }, [containerRef, sections, diffStyle])
 
   return (
     <>
-      {sections.map((section, index) => {
-        const rect = rects[index]
-        if (!rect) return null
-        const open = openIndex === index
+      {sections.flatMap((section, index) => (rects[index] ?? []).map((rect, part) => {
+        const key = `${section.side}-${section.startLine}-${section.endLine}-${part}`
+        const open = openPart === key
         return (
           <div
-            key={`${section.side}-${section.startLine}-${section.endLine}`}
+            key={key}
             className={`section-overlay ${open ? 'section-overlay-open' : ''}`}
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
             role="button"
             tabIndex={0}
-            onClick={() => setOpenIndex(open ? null : index)}
+            onClick={() => setOpenPart(open ? null : key)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                setOpenIndex(open ? null : index)
+                setOpenPart(open ? null : key)
               }
             }}
           >
             {open && <div className="section-overlay-popover">{section.label}</div>}
           </div>
         )
-      })}
+      }))}
     </>
   )
 }

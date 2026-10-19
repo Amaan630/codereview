@@ -255,7 +255,7 @@ button {
 .viewed-label:hover { color: #dedee0; }
 .viewed-label input { width: 20px; height: 20px; margin: 0; accent-color: var(--success); }
 
-.gutter-add-btn { position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; transform: translate(-50%, -50%); border: 0; border-radius: 50%; background: var(--primary); color: #06212d; font-weight: 900; line-height: 1; opacity: 0.82; }
+.gutter-add-btn { position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; transform: translate(-100%, -50%); border: 0; border-radius: 50%; background: var(--primary); color: #06212d; font-weight: 900; line-height: 1; opacity: 0.82; }
 .gutter-add-btn:hover { opacity: 1; }
 
 .section-overlay {
@@ -328,4 +328,26 @@ button {
   .file-diff-sticky-header { padding-inline: 12px; }
   .file-diff-directory, .file-copy-button { display: none; }
   .viewed-label { font-size: 0; }
+}
+
+.app-with-stack { padding-left: 268px; }
+.app-with-stack .toolbar { padding-inline: 24px; }
+.stack-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 25; width: 268px; padding: 24px 14px; overflow-y: auto; border-right: 1px solid var(--border); background: var(--bg-raised); }
+.stack-sidebar h1 { margin: 0 12px 24px; }
+.stack-sidebar nav { display: flex; flex-direction: column; gap: 8px; }
+.stack-sidebar a { display: flex; gap: 12px; padding: 12px; border: 1px solid transparent; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 560; }
+.stack-sidebar a:hover { background: var(--bg-subtle); color: var(--text); }
+.stack-sidebar a[aria-current] { border-color: var(--border-strong); background: var(--bg-subtle); color: var(--text); }
+.stack-number { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.stack-sidebar small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.review-introduction h1 { margin: 0 0 16px; color: var(--text); font-size: 24px; font-weight: 560; letter-spacing: -0.015em; }
+.review-introduction p { margin: 0; white-space: pre-wrap; }
+.file-diff-sticky-header::before { content: ''; position: absolute; inset: -1px -1px 0; z-index: -1; background: var(--bg); }
+.file-diff-sticky-header::after { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: #1d1d1e; }
+.comment-form [role=alert] { color: var(--danger); font-size: 13px; }
+@media (max-width: 820px) {
+  .app-with-stack { padding-left: 0; }
+  .stack-sidebar { position: static; width: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+  .stack-sidebar nav { flex-direction: row; overflow-x: auto; }
+  .stack-sidebar a { min-width: 180px; }
 }

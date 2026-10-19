@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef } from 'react'
+import { useMemo, useCallback, useRef, useState, useEffect, useLayoutEffect } from 'react'
 import { parsePatchFiles } from '@pierre/diffs'
 import type { FileDiffMetadata } from '@pierre/diffs'
 import type { ReviewComment } from '../types'
@@ -21,7 +21,14 @@ export function App() {
   })
   const { comments, addComment, removeComment, copyAllComments } =
     useComments()
-  const diffViewerRef = useRef<HTMLDivElement>(null)
+  const [selectedEntry, setSelectedEntry] = useState(() => window.location.hash.slice(1))
+  const pendingScroll = useRef<{ from: string; to: string } | null>(null)
+  useEffect(() => {
+    const updateEntry = () => setSelectedEntry(window.location.hash.slice(1))
+    window.addEventListener('hashchange', updateEntry)
+    return () => window.removeEventListener('hashchange', updateEntry)
+  }, [])
+  useLayoutEffect(() => { window.scrollTo(0, 0) }, [selectedEntry])
 
   const files = useMemo(() => {
     if (!patch) return []
@@ -61,18 +68,33 @@ export function App() {
     return reviewManifest?.byPath ?? {}
   }, [reviewManifest])
 
+  const activeEntry = reviewManifest?.stack?.find((entry) => entry.id === selectedEntry)
+    ?? reviewManifest?.stack?.[0]
+  const visibleFiles = useMemo(() => {
+    if (!activeEntry) return files
+    const byPath = new Map(files.map((file) => [file.name, file]))
+    return activeEntry.files.flatMap((path) => {
+      const file = byPath.get(path)
+      return file ? [file] : []
+    })
+  }, [files, activeEntry])
   const { viewedFiles, setViewed } = useViewed(files)
 
   const diffStats = useMemo(() => {
-    if (!patch) return { additions: 0, deletions: 0 }
     let additions = 0
     let deletions = 0
-    for (const line of patch.split('\n')) {
-      if (line.startsWith('+') && !line.startsWith('+++')) additions++
-      else if (line.startsWith('-') && !line.startsWith('---')) deletions++
+    for (const file of visibleFiles) {
+      for (const hunk of file.hunks) {
+        for (const content of hunk.hunkContent) {
+          if (content.type === 'change') {
+            additions += content.additions
+            deletions += content.deletions
+          }
+        }
+      }
     }
     return { additions, deletions }
-  }, [patch])
+  }, [visibleFiles])
 
   const binaryFileMap = useMemo(() => {
     const map = new Map<string, (typeof binaryFiles)[number]>()
@@ -110,14 +132,21 @@ export function App() {
     setViewed(filePath, viewed)
     if (!viewed) return
 
-    const currentFileIndex = files.findIndex((file) => file.name === filePath)
-    const nextUnviewedFile = files
+    const currentFileIndex = visibleFiles.findIndex((file) => file.name === filePath)
+    const nextUnviewedFile = visibleFiles
       .slice(currentFileIndex + 1)
       .find((file) => !viewedFiles.has(file.name))
     if (nextUnviewedFile) {
-      requestAnimationFrame(() => scrollToFile(nextUnviewedFile.name))
+      pendingScroll.current = { from: filePath, to: nextUnviewedFile.name }
     }
-  }, [files, scrollToFile, setViewed, viewedFiles])
+  }, [visibleFiles, setViewed, viewedFiles])
+
+  useLayoutEffect(() => {
+    const target = pendingScroll.current
+    if (!target || !viewedFiles.has(target.from)) return
+    pendingScroll.current = null
+    scrollToFile(target.to)
+  }, [viewedFiles, scrollToFile])
 
   if (!loaded || loading) {
     return (
@@ -136,11 +165,24 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={activeEntry ? 'app app-with-stack' : 'app'}>
+      {reviewManifest?.stack && (
+        <aside className="stack-sidebar">
+          <h1 className="toolbar-title">{reviewManifest.title ?? 'Review stack'}</h1>
+          <nav aria-label="Review stack">
+            {reviewManifest.stack.map((entry, index) => (
+              <a key={entry.id} href={`#${entry.id}`} aria-current={entry === activeEntry ? 'page' : undefined}>
+                <span className="stack-number">{String(index + 1).padStart(2, '0')}</span>
+                <span>{entry.title}<small>{entry.files.length} file{entry.files.length === 1 ? '' : 's'} · {entry.files.filter((path) => viewedFiles.has(path)).length} viewed</small></span>
+              </a>
+            ))}
+          </nav>
+        </aside>
+      )}
       <Toolbar
         repoName={repoName}
         branch={branch}
-        fileCount={files.length}
+        fileCount={visibleFiles.length}
         additions={diffStats.additions}
         deletions={diffStats.deletions}
         commentCount={comments.length}
@@ -155,9 +197,10 @@ export function App() {
         onBrowserChange={(browser) => updateSettings({ browser })}
         onCopyComments={copyAllComments}
       />
-      <main className="main" ref={diffViewerRef}>
+      <main className="main">
         <DiffViewer
-          files={files}
+          files={visibleFiles}
+          stackEntry={activeEntry}
           diffStyle={settings.diffStyle}
           tabSizeMap={tabSizeMap}
           defaultTabSize={settings.defaultTabSize}

@@ -78,6 +78,12 @@ Use this shape:
 - File `summary`: a direct sentence about the file's change, such as "Adds the saved packet page model." Do not write reasons such as "this proves..." or "read this before...".
 - File `sections` (required, not optional): the viewer draws a bordered, click-to-reveal box around each one directly on the diff, over its `startLine`..`endLine` range on the given `side`. **Every real +/- change block in every changed file needs one** — this is not a curated highlight reel of the "interesting" parts. Read the exact new/old line numbers off the real diff hunks (`git diff -U0`), don't estimate them. Several adjacent sections may jointly cover one large block (e.g. a brand-new file) — they don't need to be one giant box.
 
+For a proposed stack, use the native manifest `title` and `stack` fields described in
+README.md. Each entry has `id`, `title`, `summary` and an ordered `files` list. Assign
+each file once and keep the regular top-level file summaries and sections. Use one
+server and its built-in sidebar, never an iframe wrapper. Write simple titles;
+for fixes, explain the old behavior, its cause, and what changes. Paragraphs are supported.
+
 Legacy manifests that use a separate top-level `implementation` or per-file `justification` remain valid.
 
 ## Verify the plan before opening the UI

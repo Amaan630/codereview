@@ -17,7 +17,16 @@ export interface ReviewFileMetadata {
   sections: ReviewFileSection[]
 }
 
+export interface ReviewStackEntry {
+  id: string
+  title: string
+  summary: string
+  files: string[]
+}
+
 export interface ReviewManifest {
+  title?: string
+  stack?: ReviewStackEntry[]
   summary: string | null
   implementation: string | null
   files: ReviewFileMetadata[]
@@ -38,6 +47,8 @@ interface RawReviewFileMetadata {
 }
 
 interface RawReviewManifest {
+  title?: unknown
+  stack?: unknown
   summary?: unknown
   implementation?: unknown
   files?: unknown
@@ -110,8 +121,42 @@ export function normalizeReviewManifest(raw: unknown): ReviewManifest {
     return normalized
   })
 
+  const stack: ReviewStackEntry[] = []
+  const assignedPaths = new Set<string>()
+  if (maybeManifest?.stack !== undefined) {
+    if (!Array.isArray(maybeManifest.stack) || maybeManifest.stack.length === 0) {
+      throw new Error('review stack must be a non-empty array')
+    }
+    for (const entry of maybeManifest.stack) {
+      if (!entry || typeof entry !== 'object' ||
+          typeof entry.id !== 'string' || !entry.id.trim() ||
+          typeof entry.title !== 'string' || !entry.title.trim() ||
+          typeof entry.summary !== 'string' || !entry.summary.trim() ||
+          !Array.isArray(entry.files) || entry.files.length === 0) {
+        throw new Error('each review stack entry needs an id, title, summary and files')
+      }
+      if (stack.some((previous) => previous.id === entry.id.trim())) {
+        throw new Error(`duplicate review stack id: ${entry.id}`)
+      }
+      const paths: string[] = []
+      for (const rawPath of entry.files) {
+        const path = typeof rawPath === 'string' ? normalizePath(rawPath) : ''
+        if (!byPath[path]) throw new Error(`review stack path not in manifest: ${path}`)
+        if (assignedPaths.has(path)) throw new Error(`duplicate review stack path: ${path}`)
+        assignedPaths.add(path)
+        paths.push(path)
+      }
+      stack.push({ id: entry.id.trim(), title: entry.title.trim(), summary: entry.summary.trim(), files: paths })
+    }
+    for (const file of files) {
+      if (!assignedPaths.has(file.path)) throw new Error(`file missing from review stack: ${file.path}`)
+    }
+  }
+
   files.sort((a, b) => a.order - b.order || a.path.localeCompare(b.path))
   return {
+    ...(stack.length ? { stack } : {}),
+    ...(typeof maybeManifest?.title === 'string' ? { title: maybeManifest.title.trim() } : {}),
     summary: typeof maybeManifest?.summary === 'string' && maybeManifest.summary.trim()
       ? maybeManifest.summary.trim()
       : null,

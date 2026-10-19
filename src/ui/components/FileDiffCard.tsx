@@ -24,7 +24,7 @@ interface FileDiffCardProps {
   order: number
   reviewMetadata?: ReviewFileMetadata
   onViewedChange: (filePath: string, viewed: boolean) => void
-  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
+  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => Promise<void>
   onDeleteComment: (id: string) => void
 }
 
@@ -152,9 +152,10 @@ export const FileDiffCard = memo(function FileDiffCard({
                 if ('_pending' in annotation.metadata) {
                   return (
                     <CommentForm
-                      onSubmit={(body) => {
-                        const lineContent = getLineContent(pending!.side, pending!.lineNumber)
-                        onAddComment(filePath, pending!.side, pending!.lineNumber, lineContent, body)
+                      onSubmit={async (body) => {
+                        const { side, lineNumber } = annotation
+                        const lineContent = getLineContent(side, lineNumber)
+                        await onAddComment(filePath, side, lineNumber, lineContent, body)
                         setPending(null)
                       }}
                       onCancel={() => setPending(null)}

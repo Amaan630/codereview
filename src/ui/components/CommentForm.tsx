@@ -1,22 +1,31 @@
 import { useState, useRef, useEffect } from 'react'
 
 interface CommentFormProps {
-  onSubmit: (body: string) => void
+  onSubmit: (body: string) => Promise<void>
   onCancel: () => void
 }
 
 export function CommentForm({ onSubmit, onCancel }: CommentFormProps) {
   const [body, setBody] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmed = body.trim()
-    if (trimmed) {
-      onSubmit(trimmed)
+    if (!trimmed || saving) return
+    setSaving(true)
+    setError(null)
+    try {
+      await onSubmit(trimmed)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not save your comment. Please try again.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -40,12 +49,13 @@ export function CommentForm({ onSubmit, onCancel }: CommentFormProps) {
         placeholder="Leave a review comment..."
         rows={3}
       />
+      {error && <p role="alert">{error}</p>}
       <div className="comment-form-actions">
-        <button className="btn btn-secondary" onClick={onCancel}>
+        <button className="btn btn-secondary" onClick={onCancel} disabled={saving}>
           Cancel
         </button>
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={!body.trim()}>
-          Comment
+        <button className="btn btn-primary" onClick={handleSubmit} disabled={!body.trim() || saving}>
+          {saving ? 'Saving…' : 'Comment'}
         </button>
       </div>
     </div>

@@ -71,7 +71,7 @@ node /path/to/codereview/dist/cli.mjs --review-manifest .codereview/review.json 
 
 ## Review Manifest
 
-The manifest controls review order, the single-paragraph introduction, and concise per-file summaries.
+The manifest controls review order, the introduction, and concise per-file summaries.
 
 ```json
 {
@@ -95,6 +95,31 @@ The manifest controls review order, the single-paragraph introduction, and conci
 The UI warns when diff files are missing from the manifest or manifest paths are not present in the diff.
 
 New reviews use `.codereview/review.json`. Older `pr-<number>-review-manifest.json` files remain valid when passed to `--review-manifest`; separate top-level `implementation` fields and per-file `justification` fields remain supported.
+
+## Stack Reviews
+
+To split one diff into reviewable parts, add `title` and `stack` to the same manifest:
+
+```json
+{
+  "title": "Drawing changes",
+  "stack": [
+    {
+      "id": "scales",
+      "title": "Half-step scales",
+      "summary": "Allows half-step drawing scales.\n\nPreviously, only whole steps were available.",
+      "files": ["src/scales.ts"]
+    }
+  ],
+  "files": [{ "path": "src/scales.ts", "summary": "Adds half-step scales." }]
+}
+```
+
+Every manifest file belongs to exactly one entry. Entry order controls the sidebar;
+its file list controls reading order. The URL hash selects an entry. Descriptions
+preserve paragraphs, and all entries share comments and viewed state in one session.
+This groups a diff for review; it does not create commits or pull requests.
+Run the usual `codereview check` and launch commands with this manifest.
 
 ## Skill
 

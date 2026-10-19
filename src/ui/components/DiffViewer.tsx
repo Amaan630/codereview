@@ -1,12 +1,13 @@
 import { memo } from 'react'
 import type { FileDiffMetadata, DiffLineAnnotation, AnnotationSide } from '@pierre/diffs'
 import type { ReviewComment } from '../../types'
-import type { ReviewFileMetadata, ReviewManifest, ReviewManifestDiagnostics } from '../../review-manifest'
+import type { ReviewFileMetadata, ReviewManifest, ReviewManifestDiagnostics, ReviewStackEntry } from '../../review-manifest'
 import type { BinaryFileInfo } from '../hooks/useDiff'
 import { FileDiffCard } from './FileDiffCard'
 import { BinaryFileDiff } from './BinaryFileDiff'
 
 interface DiffViewerProps {
+  stackEntry?: ReviewStackEntry
   files: FileDiffMetadata[]
   diffStyle: 'split' | 'unified'
   tabSizeMap: Record<string, number>
@@ -18,7 +19,7 @@ interface DiffViewerProps {
   reviewManifestDiagnostics: ReviewManifestDiagnostics
   onViewedChange: (filePath: string, viewed: boolean) => void
   fileAnnotationsMap: Map<string, DiffLineAnnotation<ReviewComment>[]>
-  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => void
+  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => Promise<void>
   onDeleteComment: (id: string) => void
 }
 
@@ -26,6 +27,7 @@ const emptyAnnotations: DiffLineAnnotation<ReviewComment>[] = []
 
 export const DiffViewer = memo(function DiffViewer({
   files,
+  stackEntry,
   diffStyle,
   tabSizeMap,
   defaultTabSize,
@@ -49,10 +51,11 @@ export const DiffViewer = memo(function DiffViewer({
 
   return (
     <div className="diff-viewer">
-      <p className="review-introduction">
-        {[reviewManifest?.summary, reviewManifest?.implementation].filter(Boolean).join(' ') ||
-          `This review covers ${files.length} changed file${files.length === 1 ? '' : 's'} in implementation order.`}
-      </p>
+      <header className="review-introduction">
+        {stackEntry && <h1>{stackEntry.title}</h1>}
+        <p>{stackEntry?.summary ?? ([reviewManifest?.summary, reviewManifest?.implementation].filter(Boolean).join('\n\n') ||
+          `This review covers ${files.length} changed file${files.length === 1 ? '' : 's'} in implementation order.`)}</p>
+      </header>
       {(reviewManifestDiagnostics.filesMissingFromManifest.length > 0 ||
         reviewManifestDiagnostics.manifestPathsMissingFromDiff.length > 0) && (
         <div className="review-manifest-warning">
@@ -79,7 +82,7 @@ export const DiffViewer = memo(function DiffViewer({
               filePath={filePath}
               info={binaryInfo}
               viewed={viewedFiles.has(filePath)}
-              order={reviewMetadata?.order ?? index + 1}
+              order={stackEntry ? index + 1 : reviewMetadata?.order ?? index + 1}
               reviewMetadata={reviewMetadata}
               onViewedChange={onViewedChange}
             />
@@ -95,7 +98,7 @@ export const DiffViewer = memo(function DiffViewer({
             diffStyle={diffStyle}
             tabSize={tabSizeMap[filePath] ?? defaultTabSize}
             viewed={viewedFiles.has(filePath)}
-            order={reviewMetadata?.order ?? index + 1}
+            order={stackEntry ? index + 1 : reviewMetadata?.order ?? index + 1}
             reviewMetadata={reviewMetadata}
             onViewedChange={onViewedChange}
             onAddComment={onAddComment}

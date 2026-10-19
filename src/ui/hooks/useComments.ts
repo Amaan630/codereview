@@ -21,6 +21,7 @@ export function useComments() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       })
+      if (!res.ok) throw new Error('Could not save your comment. Please try again.')
       return res.json() as Promise<ReviewComment>
     },
     onSuccess: (comment) => {
@@ -55,8 +56,8 @@ export function useComments() {
   })
 
   const addComment = useCallback(
-    (filePath: string, side: 'deletions' | 'additions', lineNumber: number, lineContent: string, body: string) => {
-      addMutation.mutate({ filePath, side, lineNumber, lineContent, body })
+    async (filePath: string, side: 'deletions' | 'additions', lineNumber: number, lineContent: string, body: string) => {
+      await addMutation.mutateAsync({ filePath, side, lineNumber, lineContent, body })
     },
     [addMutation],
   )
