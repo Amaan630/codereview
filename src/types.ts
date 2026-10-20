@@ -12,6 +12,7 @@ export interface ReviewComment {
   lineContent: string
   body: string
   status: 'open' | 'resolved'
+  askAgent?: boolean
   createdAt: number
   replies: CommentReply[]
 }

@@ -170,8 +170,34 @@ export function createApp(
     return c.json(comments)
   })
 
+  app.get('/api/questions', async (c) => {
+    const comments = await store.getAll()
+    return c.json(comments.filter((comment) => comment.askAgent && comment.status === 'open' && comment.replies.length === 0))
+  })
+
   app.post('/api/comments', async (c) => {
     const body = await c.req.json()
+    if (body.askAgent) {
+      const url = new URL(c.req.url)
+      const origin = c.req.header('origin')
+      if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+        (origin && origin !== url.origin) ||
+        c.req.header('content-type')?.split(';')[0].trim() !== 'application/json') {
+        return c.json({ error: 'Ask questions from the local review page' }, 403)
+      }
+    }
+    if (body.askAgent !== undefined && typeof body.askAgent !== 'boolean') {
+      return c.json({ error: 'askAgent must be a boolean' }, 400)
+    }
+    if (body.askAgent && (
+      typeof body.body !== 'string' || !body.body.trim() ||
+      typeof body.filePath !== 'string' || !body.filePath ||
+      !['additions', 'deletions'].includes(body.side) ||
+      !Number.isSafeInteger(body.lineNumber) || body.lineNumber < 1 ||
+      typeof body.lineContent !== 'string'
+    )) {
+      return c.json({ error: 'A question needs text and a code location' }, 400)
+    }
     const comment = {
       id: crypto.randomUUID(),
       filePath: body.filePath,
@@ -182,6 +208,7 @@ export function createApp(
       status: 'open' as const,
       createdAt: Date.now(),
       replies: [],
+      ...(body.askAgent ? { askAgent: true } : {}),
     }
     const created = await store.add(comment)
     return c.json(created, 201)
@@ -198,6 +225,9 @@ export function createApp(
   app.post('/api/comments/:id/replies', async (c) => {
     const commentId = c.req.param('id')
     const { body } = await c.req.json()
+    if (typeof body !== 'string' || !body.trim()) {
+      return c.json({ error: 'Reply text is required' }, 400)
+    }
     const reply = {
       id: crypto.randomUUID(),
       body,

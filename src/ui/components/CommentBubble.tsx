@@ -39,6 +39,9 @@ export function CommentBubble({ comment, onDelete }: CommentBubbleProps) {
         )}
       </div>
       <div className="comment-bubble-body">{comment.body}</div>
+      {comment.askAgent && !isResolved && comment.replies.length === 0 && (
+        <div className="comment-reply" role="status">Waiting for reviewer…</div>
+      )}
       {comment.replies?.length > 0 && (
         <div className="comment-replies">
           {comment.replies.map((reply) => (

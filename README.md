@@ -29,6 +29,13 @@ node /path/to/codereview/dist/cli.mjs
 
 For PR review sessions, copy `SKILL.md` into your agent's skills directory as `review-pr/SKILL.md`.
 
+Use **Option/Alt+Enter** or **Ask reviewer** to ask about a line; **Command/Ctrl+Enter**
+still saves a normal comment. For live inline answers, ask the originating agent to stay
+in review mode and run `codereview listen <local-review-url>`. It waits up to 50 seconds
+for questions; the agent answers through `/api/comments/:id/replies` and listens again.
+Questions remain waiting if that chat is stopped. Answers appear automatically within
+three seconds; text is not streamed word by word.
+
 The skill does not depend on where it is copied. It resolves the CLI in this order:
 
 1. `codereview` on `PATH`

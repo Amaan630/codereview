@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
+import { setTimeout } from 'node:timers/promises'
 import getPort from 'get-port'
 import { isGitRepo, getCustomGitDiff, getGitDiff } from './git.js'
 import { startServer } from './server.js'
@@ -11,7 +12,8 @@ import { normalizeReviewManifest } from './review-manifest.js'
 import { checkReviewPlan } from './check-review-plan.js'
 
 const isCheckCommand = process.argv[2] === 'check'
-const rawArgs = isCheckCommand ? process.argv.slice(3) : process.argv.slice(2)
+const isListenCommand = process.argv[2] === 'listen'
+const rawArgs = isCheckCommand || isListenCommand ? process.argv.slice(3) : process.argv.slice(2)
 
 const { values, positionals } = parseArgs({
   args: rawArgs,
@@ -26,6 +28,31 @@ const { values, positionals } = parseArgs({
   },
   allowPositionals: true,
 })
+
+if (isListenCommand) {
+  try {
+    const url = new URL(positionals[0])
+    if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname) || url.username || url.password) {
+      throw new Error('Use the local review URL, such as http://127.0.0.1:3433/')
+    }
+    const deadline = Date.now() + 50_000
+    while (true) {
+      const response = await fetch(new URL('/api/questions', url), { signal: AbortSignal.timeout(5000), redirect: 'error' })
+      if (!response.ok) throw new Error(`Review server returned ${response.status}`)
+      const questions = await response.json()
+      if (!Array.isArray(questions)) throw new Error('This review server does not support questions')
+      if (questions.length || Date.now() >= deadline) {
+        console.log(JSON.stringify(questions, null, 2))
+        break
+      }
+      await setTimeout(1000)
+    }
+    process.exit(0)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : 'Could not reach the review')
+    process.exit(1)
+  }
+}
 
 if (isCheckCommand) {
   if (!isGitRepo()) {
@@ -52,6 +79,7 @@ if (values.help) {
   console.log(`codereview - Local ordered code review tool for git diffs
 
 Usage: codereview [options] [-- <git diff args>]
+       codereview listen <local-review-url>
 
 Options:
   -p, --port <port>  Port to run the server on (default: random available port)

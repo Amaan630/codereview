@@ -19,7 +19,7 @@ interface DiffViewerProps {
   reviewManifestDiagnostics: ReviewManifestDiagnostics
   onViewedChange: (filePath: string, viewed: boolean) => void
   fileAnnotationsMap: Map<string, DiffLineAnnotation<ReviewComment>[]>
-  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string) => Promise<void>
+  onAddComment: (filePath: string, side: AnnotationSide, lineNumber: number, lineContent: string, body: string, askAgent?: boolean) => Promise<void>
   onDeleteComment: (id: string) => void
 }
 
