@@ -264,10 +264,10 @@ button {
   border: 1px solid rgba(86, 182, 232, 0.22);
   border-radius: 6px;
   background: rgba(86, 182, 232, 0.035);
-  cursor: pointer;
+  pointer-events: none;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.section-overlay:hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
+.section-overlay-hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
 .section-overlay:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .section-overlay-popover {
   position: absolute;
@@ -287,6 +287,7 @@ button {
   text-align: left;
   white-space: pre-wrap;
   cursor: default;
+  pointer-events: auto;
 }
 
 .comment-form, .comment-bubble { max-width: 680px; margin: 10px 18px; padding: 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: #202225; }
