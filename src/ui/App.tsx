@@ -170,12 +170,25 @@ export function App() {
         <aside className="stack-sidebar">
           <h1 className="toolbar-title">{reviewManifest.title ?? 'Review stack'}</h1>
           <nav aria-label="Review stack">
-            {reviewManifest.stack.map((entry, index) => (
-              <a key={entry.id} href={`#${entry.id}`} aria-current={entry === activeEntry ? 'page' : undefined}>
-                <span className="stack-number">{String(index + 1).padStart(2, '0')}</span>
-                <span>{entry.title}<small>{entry.files.length} file{entry.files.length === 1 ? '' : 's'} · {entry.files.filter((path) => viewedFiles.has(path)).length} viewed</small></span>
-              </a>
-            ))}
+            {reviewManifest.stack.map((entry, index) => {
+              const viewed = entry.files.filter((path) => viewedFiles.has(path)).length
+              const complete = entry.files.length > 0 && viewed === entry.files.length
+              return (
+                <a key={entry.id} href={`#${entry.id}`} aria-current={entry === activeEntry ? 'page' : undefined}>
+                  <span className="stack-number">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="stack-entry-content">
+                    {entry.title}
+                    <small>{viewed} / {entry.files.length} reviewed{complete ? ' · Complete' : ''}</small>
+                    <progress
+                      className={complete ? 'stack-progress complete' : 'stack-progress'}
+                      value={viewed}
+                      max={Math.max(1, entry.files.length)}
+                      aria-label={`${entry.title} review progress`}
+                    />
+                  </span>
+                </a>
+              )
+            })}
           </nav>
         </aside>
       )}

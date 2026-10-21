@@ -1,3 +1,4 @@
+import type { BlameEntry } from './types.js'
 import { execFileSync } from 'node:child_process'
 import { basename, join, resolve } from 'node:path'
 import { readFileSync } from 'node:fs'
@@ -175,4 +176,54 @@ function getUntrackedFilesDiff(): string {
   }
 
   return patches.length > 0 ? '\n' + patches.join('\n') : ''
+}
+
+export function getDiffBase(args: string[] = []): string {
+  const separator = args.indexOf('--')
+  const revisions = execFileSync('git', ['rev-parse', '--revs-only', ...args.slice(0, separator < 0 ? args.length : separator)], { encoding: 'utf-8' }).trim().split('\n').filter(Boolean)
+  const positive = revisions.filter((revision) => !revision.startsWith('^'))
+  const negative = revisions.find((revision) => revision.startsWith('^'))?.slice(1)
+  if (args.includes('-R') || args.includes('--reverse')) {
+    const reversedBase = negative ? positive[0] : positive.length > 1 ? positive.at(-1) : undefined
+    return reversedBase ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).trim()
+  }
+  if (args.includes('--merge-base') && positive.length) {
+    return execFileSync('git', ['merge-base', positive[0], positive[1] ?? 'HEAD'], { encoding: 'utf-8' }).trim()
+  }
+  return negative ?? positive[0] ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf-8' }).trim()
+}
+
+export function getBlame(path: string, blob: string, revision: string, start: number, end: number): BlameEntry[] {
+  const options = { cwd: getRepoRoot(), encoding: 'utf-8' as const, timeout: 5000, maxBuffer: 50 * 1024 * 1024, stdio: 'pipe' as const }
+  const tree = execFileSync('git', ['ls-tree', revision, '--', path], options)
+  const baseBlob = tree.match(/^\d+ blob ([0-9a-f]+)\t/)?.[1]
+  const args = ['blame', '--line-porcelain', '-L', `${start},${end}`]
+  let input: string | undefined
+  if (baseBlob?.startsWith(blob)) {
+    args.push(revision)
+  } else {
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], options).trim()
+    if (revision !== head) throw new Error('The old file does not match the review base')
+    input = execFileSync('git', ['cat-file', 'blob', blob], options)
+    if (!baseBlob) return [{ commit: '0'.repeat(40), author: 'uncommitted', summary: '', lines: end - start + 1 }]
+    args.push('--contents', '-')
+  }
+  const output = execFileSync('git', [...args, '--', path], { ...options, input })
+  const entries = new Map<string, BlameEntry>()
+  let commit = '', author = '', summary = ''
+  for (const line of output.split('\n')) {
+    const header = line.match(/^([0-9a-f]{40,64}) \d+ \d+(?: \d+)?$/)
+    if (header) {
+      commit = header[1]
+      author = ''
+      summary = ''
+    } else if (line.startsWith('author ')) author = line.slice(7)
+    else if (line.startsWith('summary ')) summary = line.slice(8)
+    else if (line.startsWith('\t')) {
+      const entry = entries.get(commit)
+      if (entry) entry.lines++
+      else entries.set(commit, { commit, author: /^0+$/.test(commit) ? 'uncommitted' : author, summary, lines: 1 })
+    }
+  }
+  return [...entries.values()]
 }

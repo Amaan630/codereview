@@ -16,3 +16,10 @@ export interface ReviewComment {
   createdAt: number
   replies: CommentReply[]
 }
+
+export interface BlameEntry {
+  commit: string
+  author: string
+  summary: string
+  lines: number
+}

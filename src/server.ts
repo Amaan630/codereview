@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import { readFileSync } from 'node:fs'
-import { join, extname, resolve } from 'node:path'
+import { join, extname, resolve, relative } from 'node:path'
+import { parsePatchFiles } from '@pierre/diffs'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
-import { getGitDiff, getCustomGitDiff, getRepoName, getBranchName, getFileContent, isImageFile, getTabSizeForFiles, getUntrackedFilePaths } from './git.js'
+import { getBlame, getDiffBase, getRepoRoot, getGitDiff, getCustomGitDiff, getRepoName, getBranchName, getFileContent, isImageFile, getTabSizeForFiles, getUntrackedFilePaths } from './git.js'
 import { loadSettings, saveSettings } from './settings.js'
 import { InMemoryCommentStore } from './comments.js'
 import type { CommentStore } from './comments.js'
@@ -92,6 +93,7 @@ export function createApp(
   const isCustomMode = !!customDiffArgs || allChanges
   const store = commentStore ?? new InMemoryCommentStore()
   const viewedFiles = new Map<string, string>()
+  const blameFiles = new Map<string, { path: string; revision: string; lastLine: number }>()
 
   app.get('/api/diff', (c) => {
     let patch: string
@@ -101,6 +103,20 @@ export function createApp(
       patch = getCustomGitDiff(customDiffArgs)
     } else {
       patch = getGitDiff({ staged, untracked })
+    }
+    blameFiles.clear()
+    const oldFiles = parsePatchFiles(patch).flatMap((part) => part.files).filter((file) => file.prevObjectId && !/^0+$/.test(file.prevObjectId))
+    if (oldFiles.length) {
+      const revision = getDiffBase(customDiffArgs)
+      const relativeArg = customDiffArgs?.find((arg) => arg === '--relative' || arg.startsWith('--relative='))
+      const prefix = relativeArg === '--relative' ? relative(getRepoRoot(), process.cwd()) : relativeArg?.slice(11)
+      for (const file of oldFiles) {
+        blameFiles.set(JSON.stringify([file.prevName ?? file.name, file.prevObjectId]), {
+          path: join(prefix ?? '', file.prevName ?? file.name),
+          revision,
+          lastLine: Math.max(0, ...file.hunks.map((hunk) => hunk.deletionStart + hunk.deletionCount - 1)),
+        })
+      }
     }
     const repoName = getRepoName()
     const branch = getBranchName()
@@ -119,6 +135,22 @@ export function createApp(
       untrackedFiles,
       reviewManifest,
     })
+  })
+
+  app.get('/api/blame', (c) => {
+    const path = c.req.query('path') ?? ''
+    const blob = c.req.query('blob') ?? ''
+    const start = Number(c.req.query('start'))
+    const end = Number(c.req.query('end'))
+    const file = blameFiles.get(JSON.stringify([path, blob]))
+    if (!file || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start || end > file.lastLine) {
+      return c.json({ error: 'Choose deleted lines in the current review' }, 400)
+    }
+    try {
+      return c.json(getBlame(file.path, blob, file.revision, start, end))
+    } catch {
+      return c.json({ error: 'Git blame is unavailable for these lines' }, 422)
+    }
   })
 
   app.get('/api/file-content', (c) => {

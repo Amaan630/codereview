@@ -185,6 +185,8 @@ export const FileDiffCard = memo(function FileDiffCard({
             />
             <SectionOverlays
               containerRef={diffBodyRef}
+              filePath={fileDiff.prevName ?? filePath}
+              oldObjectId={fileDiff.prevObjectId}
               sections={reviewMetadata?.sections ?? []}
               diffStyle={diffStyle}
             />

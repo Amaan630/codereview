@@ -268,6 +268,7 @@ button {
   transition: border-color 120ms ease, background 120ms ease;
 }
 .section-overlay:hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
+.section-overlay-open { z-index: 8; }
 .section-overlay:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .section-overlay-popover {
   position: absolute;
@@ -275,7 +276,9 @@ button {
   left: 0;
   z-index: 6;
   margin-top: 6px;
-  max-width: 420px;
+  width: min(560px, 100%);
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
   padding: 8px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 7px;
@@ -288,6 +291,8 @@ button {
   white-space: pre-wrap;
   cursor: default;
 }
+
+.section-overlay-blame { margin-bottom: 7px; color: var(--text-muted); font-size: 11px; white-space: normal; }
 
 .comment-form, .comment-bubble { max-width: 680px; margin: 10px 18px; padding: 14px; border: 1px solid var(--border-strong); border-radius: 8px; background: #202225; }
 .comment-form textarea { width: 100%; min-height: 80px; padding: 9px 10px; border: 1px solid var(--border-strong); border-radius: 5px; outline: 0; background: var(--bg); color: var(--text); resize: vertical; }
@@ -340,6 +345,12 @@ button {
 .stack-sidebar a:hover { background: var(--bg-subtle); color: var(--text); }
 .stack-sidebar a[aria-current] { border-color: var(--border-strong); background: var(--bg-subtle); color: var(--text); }
 .stack-number { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.stack-entry-content { flex: 1; min-width: 0; }
+.stack-progress { display: block; width: 100%; height: 4px; margin-top: 8px; appearance: none; border: 0; border-radius: 2px; overflow: hidden; background: var(--border); color: var(--primary); }
+.stack-progress.complete { color: var(--success); }
+.stack-progress::-webkit-progress-bar { background: var(--border); }
+.stack-progress::-webkit-progress-value { background: currentColor; }
+.stack-progress::-moz-progress-bar { background: currentColor; }
 .stack-sidebar small { display: block; margin-top: 5px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
 .review-introduction h1 { margin: 0 0 16px; color: var(--text); font-size: 24px; font-weight: 560; letter-spacing: -0.015em; }
 .review-introduction p { margin: 0; white-space: pre-wrap; }

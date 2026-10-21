@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import type { BlameEntry } from '../../types'
 import type { ReviewFileSection } from '../../review-manifest'
 
 interface SectionOverlaysProps {
   containerRef: RefObject<HTMLElement | null>
+  filePath: string
+  oldObjectId?: string
   sections: ReviewFileSection[]
   diffStyle: 'split' | 'unified'
 }
@@ -60,10 +64,22 @@ function measureSection(
   return rects
 }
 
-export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOverlaysProps) {
+export function SectionOverlays({ containerRef, filePath, oldObjectId, sections, diffStyle }: SectionOverlaysProps) {
   const [rects, setRects] = useState<OverlayRect[][]>([])
   const [openPart, setOpenPart] = useState<string | null>(null)
   const frameRef = useRef<number | null>(null)
+  const openSection = sections.find((section) => openPart?.startsWith(`${section.side}-${section.startLine}-${section.endLine}-`))
+  const blame = useQuery<BlameEntry[]>({
+    queryKey: ['blame', filePath, oldObjectId, openSection?.startLine, openSection?.endLine],
+    enabled: openSection?.side === 'deletions' && !!oldObjectId,
+    retry: false,
+    queryFn: async () => {
+      const query = new URLSearchParams({ path: filePath, blob: oldObjectId!, start: String(openSection!.startLine), end: String(openSection!.endLine) })
+      const response = await fetch(`/api/blame?${query}`)
+      if (!response.ok) throw new Error('Git blame unavailable')
+      return response.json()
+    },
+  })
 
   useEffect(() => {
     const container = containerRef.current
@@ -131,7 +147,21 @@ export function SectionOverlays({ containerRef, sections, diffStyle }: SectionOv
               }
             }}
           >
-            {open && <div className="section-overlay-popover">{section.label}</div>}
+            {open && (
+              <div className="section-overlay-popover" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                {section.side === 'deletions' && (
+                  <div className="section-overlay-blame">
+                    <span>git blame</span>
+                    {!oldObjectId || blame.isError ? ' · unavailable' : blame.isPending ? ' · loading…' : blame.data?.map((entry) => (
+                      <div key={entry.commit} title={entry.summary}>
+                        {entry.author}{!/^0+$/.test(entry.commit) && <> · <code>{entry.commit.slice(0, 7)}</code></>} · {entry.lines} {entry.lines === 1 ? 'line' : 'lines'}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div>{section.label}</div>
+              </div>
+            )}
           </div>
         )
       }))}
