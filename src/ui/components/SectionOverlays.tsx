@@ -20,6 +20,10 @@ interface OverlayRect {
 
 const OVERLAY_PADDING = 3
 
+function partKey(section: ReviewFileSection, part: number): string {
+  return `${section.side}-${section.startLine}-${section.endLine}-${part}`
+}
+
 function findColumnRoot(shadow: ShadowRoot, diffStyle: 'split' | 'unified', side: 'additions' | 'deletions'): Element | null {
   if (diffStyle === 'unified') return shadow.querySelector('[data-unified]')
   return shadow.querySelector(side === 'additions' ? '[data-additions]' : '[data-deletions]')
@@ -67,7 +71,10 @@ function measureSection(
 export function SectionOverlays({ containerRef, filePath, oldObjectId, sections, diffStyle }: SectionOverlaysProps) {
   const [rects, setRects] = useState<OverlayRect[][]>([])
   const [openPart, setOpenPart] = useState<string | null>(null)
+  const [hoveredPart, setHoveredPart] = useState<string | null>(null)
   const frameRef = useRef<number | null>(null)
+  const rectsRef = useRef(rects)
+  rectsRef.current = rects
   const openSection = sections.find((section) => openPart?.startsWith(`${section.side}-${section.startLine}-${section.endLine}-`))
   const blame = useQuery<BlameEntry[]>({
     queryKey: ['blame', filePath, oldObjectId, openSection?.startLine, openSection?.endLine],
@@ -127,19 +134,60 @@ export function SectionOverlays({ containerRef, filePath, oldObjectId, sections,
     }
   }, [containerRef, sections, diffStyle])
 
+  // Overlays ignore the mouse (`pointer-events: none`) so dragging over the
+  // code selects text. Clicks and hovers are instead hit-tested here against
+  // the measured rects, and a click that ends a text selection is ignored.
+  // The selection lives in the diff's shadow root, where the document
+  // selection always reports `isCollapsed`, so check its text instead.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container || sections.length === 0) return
+
+    const partAt = (event: MouseEvent): string | null => {
+      const containerRect = container.getBoundingClientRect()
+      const x = event.clientX - containerRect.left
+      const y = event.clientY - containerRect.top
+      for (const [index, section] of sections.entries()) {
+        for (const [part, rect] of (rectsRef.current[index] ?? []).entries()) {
+          if (x >= rect.left && x <= rect.left + rect.width && y >= rect.top && y <= rect.top + rect.height) {
+            return partKey(section, part)
+          }
+        }
+      }
+      return null
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('button, textarea, .section-overlay-popover')) return
+      if (getSelection()?.toString()) return
+      const key = partAt(event)
+      if (key) setOpenPart((current) => (current === key ? null : key))
+    }
+    const handleMouseMove = (event: MouseEvent) => setHoveredPart(partAt(event))
+    const handleMouseLeave = () => setHoveredPart(null)
+
+    container.addEventListener('click', handleClick)
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+    return () => {
+      container.removeEventListener('click', handleClick)
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+    }
+  }, [containerRef, sections])
+
   return (
     <>
       {sections.flatMap((section, index) => (rects[index] ?? []).map((rect, part) => {
-        const key = `${section.side}-${section.startLine}-${section.endLine}-${part}`
+        const key = partKey(section, part)
         const open = openPart === key
         return (
           <div
             key={key}
-            className={`section-overlay ${open ? 'section-overlay-open' : ''}`}
+            className={`section-overlay ${open ? 'section-overlay-open' : ''} ${hoveredPart === key ? 'section-overlay-hover' : ''}`}
             style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
             role="button"
             tabIndex={0}
-            onClick={() => setOpenPart(open ? null : key)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()

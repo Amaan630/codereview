@@ -264,10 +264,10 @@ button {
   border: 1px solid rgba(86, 182, 232, 0.22);
   border-radius: 6px;
   background: rgba(86, 182, 232, 0.035);
-  cursor: pointer;
+  pointer-events: none;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.section-overlay:hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
+.section-overlay-hover, .section-overlay-open { border-color: rgba(86, 182, 232, 0.65); background: rgba(86, 182, 232, 0.12); }
 .section-overlay-open { z-index: 8; }
 .section-overlay:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 .section-overlay-popover {
@@ -290,6 +290,7 @@ button {
   text-align: left;
   white-space: pre-wrap;
   cursor: default;
+  pointer-events: auto;
 }
 
 .section-overlay-blame { margin-bottom: 7px; color: var(--text-muted); font-size: 11px; white-space: normal; }
